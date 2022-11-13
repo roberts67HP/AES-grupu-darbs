@@ -288,7 +288,7 @@ class AES:
                         print("XOR by 1b")
                         num = num ^ 27
                         print(hex(num))
-                    # ja vēl joprojām ir overflow (skaitlis >255 (>ff in hex)), tad overflow ciparu nomet nost (vērtība = 256 % vērtība.)
+                    # ja vēl joprojām ir overflow (skaitlis >255  (>ff in hex)), tad overflow ciparu nomet nost (vērtība = 256 % vērtība.)
                     if (num > 255):
                         print("Removing overflow")
                         num %= 256
