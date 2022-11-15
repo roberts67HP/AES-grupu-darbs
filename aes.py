@@ -95,14 +95,9 @@ class Block:
             self.list.append(col)
 
     def printBytes(self):
-        
-        a = 0 #uncomment a for column print
         for col in self.list:
-            print("Column ", a) #uncomment a for column print
-            a+=1 #uncomment a for column print
             for byte in col:
-                #print(hex(byte), end=' ') #uncomment for non column print
-                print(hex(byte), end='\n') #uncomment for collumn print
+                print(hex(byte)+", ", end="")
         print()
 
 
@@ -115,10 +110,7 @@ class Blocks:
 
         while True:
             # plainTextBytes = bytes(plaintext[startIndex : endIndex], 'utf-8')
-
-            # //pagaidām tikai testēšanai
-            plainTextBytes = string_to_bytes(plaintext[startIndex: endIndex])
-            # //
+            plainTextBytes = plaintext
 
             self.list.append(Block(plainTextBytes, gridSize))
             startIndex += gridSize * gridSize
@@ -130,7 +122,6 @@ class Blocks:
         for block in self.list:
             block.printBytes()
 
-
 class AES:
     # Nav vēl kārtīgi implementēts
     class KeyInfo (enum.Enum):
@@ -138,13 +129,90 @@ class AES:
         MEDIUM = 192, 12,
         LARGE = 256, 14
 
-        def __init__(self, bitSize, rounds):
+        def __init__ (self, bitSize, rounds) :
             self.bitSize = bitSize
             self.rounds = rounds
 
-    def encrypt(self, plaintext, keyInfo=KeyInfo.SMALL):
+    class EncryptedCipherText :
+        def __init__ (self, cipheredText, keyInfo, initialKey, roundKeys, finalKey) :
+            self.cipheredTextBlocks = cipheredText
+            self.keyInfo = keyInfo
+            self.initialKey = initialKey
+            self.roundKeys = roundKeys
+            self.finalKey = finalKey
+
+    def encrypt (self, plaintext, keyInfo = KeyInfo.SMALL) :
         plainTextBlocks = Blocks(plaintext, 4)
-        initialKeyBlock = self.generate_key(keyInfo.bitSize)
+        initialKeyBlock = None
+        roundKeyBlocks = []
+        finalKeyBlock = None
+        firstLoop = True
+
+        for block in plainTextBlocks.list:
+            if firstLoop :
+                initialKeyBlock = self.generate_key(keyInfo.bitSize)
+            self.add_round_key(block, initialKeyBlock)
+            self.sub_bytes(block)
+            self.shift_rows(block)
+            self.mix_columns(block)
+
+            roundIndex = 0
+            while roundIndex < keyInfo.rounds - 1 :
+                if firstLoop :
+                    roundKeyBlocks.append(self.generate_key(keyInfo.bitSize))
+
+                self.sub_bytes(block)
+                self.shift_rows(block)
+                self.mix_columns(block)
+                self.add_round_key(block, roundKeyBlocks[roundIndex])
+
+                roundIndex += 1
+            self.sub_bytes(block)
+            self.shift_rows(block)
+            if firstLoop :
+                finalKeyBlock = self.generate_key(keyInfo.bitSize)
+            self.add_round_key(block, finalKeyBlock)
+            firstLoop = False
+        
+        return AES.EncryptedCipherText(plainTextBlocks, keyInfo, initialKeyBlock, roundKeyBlocks, finalKeyBlock)
+
+    def decrypt (self, encrCiphertext) :
+        for block in encrCiphertext.cipheredTextBlocks.list :
+            self.add_round_key(block, encrCiphertext.finalKey)
+            self.sub_bytes(block)
+            self.shift_rows(block)
+            self.mix_columns(block)
+
+            roundIndex = len(encrCiphertext.roundKeys)
+            while roundIndex > 0 :
+                self.sub_bytes(block)
+                self.shift_rows(block)
+                self.mix_columns(block)
+                self.add_round_key(block, encrCiphertext.roundKeys[roundIndex - 1])
+
+                roundIndex -= 1
+            self.sub_bytes(block)
+            self.shift_rows(block)
+            self.add_round_key(block, encrCiphertext.initialKey)
+        
+        plaintext = ""
+
+        for block in encrCiphertext.cipheredTextBlocks.list :
+            for col in block.list :
+                for byte in col :
+                    plaintext += chr(byte)
+        return plaintext
+
+    def encrypt_test (self):
+        keyInfo = AES.KeyInfo.SMALL
+        plainTextBlocks = Blocks(bytes([
+            0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+            0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff
+        ]), 4)
+        initialKeyBlock = Block(bytes([
+            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+            0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+        ]), 4)
 
         print("\nPlaintext before = ", end=" ")
         plainTextBlocks.printBlocks()
@@ -154,7 +222,6 @@ class AES:
         for block in plainTextBlocks.list:
             self.add_round_key(block, initialKeyBlock)
 
-            # //pagaidām tikai testēšanai
             self.sub_bytes(block)
             print("\nPlaintext after sub bytes = ", end=" ")
             plainTextBlocks.printBlocks()
@@ -164,7 +231,6 @@ class AES:
             self.mix_columns(block)
             print("\nPlaintext after mix columns = ", end=" ")
             plainTextBlocks.printBlocks()
-            # //
 
             # roundIndex = 0
             # while roundIndex < keyInfo.rounds - 1 :
@@ -182,19 +248,42 @@ class AES:
         print("Plaintext After = ", end="")
         plainTextBlocks.printBlocks()
 
-    def decrypt(self):
-        return
+    def decrypt_test(self):
+        keyInfo = AES.KeyInfo.SMALL
+        cipherTextBlocks = Blocks(bytes([
+            0x8e, 0xa2, 0xb7, 0xca, 0x51, 0x67, 0x45, 0xbf,
+            0xea, 0xfc, 0x49, 0x90, 0x4b, 0x49, 0x60, 0x89
+        ]), 4)
+        initialKeyBlock = Block(bytes([
+            0x24, 0xfc, 0x79, 0xcc, 0xbf, 0x09, 0x79, 0xe9,
+            0x37, 0x1a, 0xc2, 0x3c, 0x6d, 0x68, 0xde, 0x36
+        ]), 4)
+
+        print("\nCiphertext before = ", end=" ")
+        cipherTextBlocks.printBlocks()
+        print("\nInitial key = ", end=" ")
+        initialKeyBlock.printBytes()
+
+        for block in cipherTextBlocks.list:
+            self.add_round_key(block, initialKeyBlock)
+            print("\nCiphertext after round key = ", end=" ")
+            cipherTextBlocks.printBlocks()
+
+            self.inv_shift_rows(block)
+            print("\nCiphertext after inv shift rows = ", end=" ")
+            cipherTextBlocks.printBlocks()
+
+            self.inv_sub_bytes(block)
+            print("\nCiphertext after inv sub bytes = ", end=" ")
+            cipherTextBlocks.printBlocks()
+
+            self.inv_mix_columns(block)
+            print("\nCiphertext after inv mix columns = ", end=" ")
+            cipherTextBlocks.printBlocks()
 
     def generate_key(self, size):
-        # //Šis jādzēš tad kad vis iet kā vajag
-        tempKey = chr(0x00)+chr(0x01)+chr(0x02)+chr(0x03)+chr(0x04)+chr(0x05)+chr(0x06)+chr(
-            0x07)+chr(0x08)+chr(0x09)+chr(0x0a)+chr(0x0b)+chr(0x0c)+chr(0x0d)+chr(0x0e)+chr(0x0f)
-        keyBytes = string_to_bytes(tempKey)
-        return Block(keyBytes, 4)
-        # ///
-
-        # random.seed()
-        # return Block(random.randbytes(int(size / 8)), 4)
+        random.seed()
+        return Block(random.randbytes(int(size / 8)), 4)
 
     def add_round_key(self, plaintextBlock, keyBlock):
         for y in range(len(plaintextBlock.list)):
@@ -214,6 +303,17 @@ class AES:
                 byteRight = byte & 0x0F
                 # no s_box iegūst konkrēto baitu ar abām daļām
                 plaintextCol[x] = s_box[byteLeft][byteRight]
+
+    def inv_sub_bytes(self, ciphertextBlock) :
+        for y in range(len(ciphertextBlock.list)):
+            ciphertextCol = ciphertextBlock.list[y]
+            for x in range(len(ciphertextCol)):
+                byte = ciphertextCol[x]
+                # tiek iegūta baita kreisā daļa un labā daļa
+                byteLeft = (byte & 0xF0) >> 4
+                byteRight = byte & 0x0F
+                # no inv_s_box iegūst konkrēto baitu ar abām daļām
+                ciphertextCol[x] = inv_s_box[byteLeft][byteRight]
 
     def shift_rows(self, plaintextBlock):
         shiftAmount = 0
@@ -238,18 +338,41 @@ class AES:
 
             shiftAmount += 1
 
+    def inv_shift_rows(self, ciphertextBlock):
+        shiftAmount = 0
+        for rowIndex in range(4):
+            # Izveido jaunu sarakstu un pievieno baitus no ciphertext bloka rindas
+            tempRowBytes = []
+            for col in ciphertextBlock.list:
+                tempRowBytes.append(col[rowIndex])
+
+            # Pabīdīšana pa labi
+            shiftCount = 0
+            while shiftCount < shiftAmount:
+                byte = tempRowBytes.pop()
+                tempRowBytes.insert(0, byte)
+                shiftCount += 1
+
+            # Aizvieto rindas iepriekšējo ciphertext baitu secību ar jauno
+            tempRowByteIndex = 0
+            for col in ciphertextBlock.list:
+                col[rowIndex] = tempRowBytes[tempRowByteIndex]
+                tempRowByteIndex += 1
+
+            shiftAmount += 1
+
     def mix_columns(self, plaintextBlock):
         #                   col0 col1 col2 col3
         # row0 [2  3  1  1] [0x63 0x9  0xcd 0xba]
         # row1 [1  2  3  1]X[0x53 0x60 0x70 0xca] = xor(row[i] x column[i]) = [?]
         # row2 [1  1  2  3] [0xe0 0xe1 0xb7 0xd0]
         # row3 [3  1  1  2] [0x8c 0x4  0x51 0xe7]
-        multipliers = [[2, 3, 1, 1],
-                       [1, 2, 3, 1],
-                       [1, 1, 2, 3],
-                       [3, 1, 1, 2]
-                       ]
-        print(" - MixCol - ")
+        multipliers = [
+            [2, 3, 1, 1],
+            [1, 2, 3, 1],
+            [1, 1, 2, 3],
+            [3, 1, 1, 2]
+        ]
         # iterē cauri katrai plaintext vērtībai
         tempText = []
         resArr = []
@@ -262,28 +385,85 @@ class AES:
         num = 0
 
         for y in range(4):
-
             for x in range(4):
-                print("On value ", hex(tempText[y][x]), " at x - ", x, "  y - ", y)
+                # print("On value ", hex(tempText[y][x]), " at x - ", x, "  y - ", y)
                 res = 0
                 # kā matricu sareizina multis rindas ar plaintext kolonnām, bet skaitīšanas vietā XOR sareizināto. Piem. (2*63 XOR 3*53 XOR 1*e0 XOR 1*8c)
                 for z in range(4):
                     num = 0
-                    print("Z loop start value - ", hex(tempText[y][z]))
+                    # print("Z loop start value - ", hex(tempText[y][z]))
                     if (multipliers[x][z] == 1):
-                        print("multi is 1")
+                        # print("multi is 1")
                         num = tempText[y][z]
-                        print(hex(num))
+                        # print(hex(num))
                     elif (multipliers[x][z] == 2):
-                        print("multi is 2")
+                        # print("multi is 2")
                         num = (2 * tempText[y][z])
-                        print(hex(num))
+                        # print(hex(num))
                     # ja reizinātājs ir 3, tad rēķina šādi: 2 * vērtība XOR vērtība. Piem. 3 * ab = (2 * ab) XOR ab
                     elif (multipliers[x][z] == 3):
-                        print("multi is 3")
+                        # print("multi is 3")
                         num = (2 * tempText[y][z]) ^ tempText[y][z]
-                        print(hex(num))
+                        # print(hex(num))
                         # ja reizinot ir overflow (skaitlis >255 (>ff in hex)), tad rezultātu XOR ar 1b (27). (var izpildīties tikai tad, ja reizina ar 2 vai 3)
+                    if (num > 255):
+                        # print("XOR by 1b")
+                        num = num ^ 27
+                        # print(hex(num))
+                    # ja vēl joprojām ir overflow (skaitlis >255  (>ff in hex)), tad overflow ciparu nomet nost (vērtība = 256 % vērtība.)
+                    if (num > 255):
+                        # print("Removing overflow")
+                        num %= 256
+                        # print(hex(num))
+                    res ^= num
+                # print("After Column Mix value ", hex(res))
+                resArr.append(res)
+        tempRowByteIndex = 0
+        for col in plaintextBlock.list:
+            for rowIndex in range(4):     
+                col[rowIndex] = resArr[tempRowByteIndex]
+                tempRowByteIndex += 1
+
+    def inv_mix_columns (self, ciphertextBlock) :
+        multipliers = [
+            [14, 11, 13, 9],
+            [9, 14, 11, 13],
+            [13, 9, 14, 11],
+            [11, 13, 9, 14]
+        ]
+        tempText = []
+        resArr = []
+        for col in ciphertextBlock.list:
+            tempRowBytes = []
+            for rowIndex in range(4):
+                tempRowBytes.append(col[rowIndex])
+            tempText.append(tempRowBytes)
+        # prints values for debug purpose
+        num = 0
+
+        for y in range(4):
+            for x in range(4):
+                print("On value ", hex(tempText[y][x]), " at x - ", x, "  y - ", y)
+                res = 0
+                for z in range(4):
+                    num = 0
+                    print("Z loop start value - ", hex(tempText[y][z]))
+                    if (multipliers[x][z] == 9):
+                        print("multi is 9")
+                        num = (((tempText[y][z] * 2) * 2) * 2) ^ tempText[y][z]
+                        print(hex(num))
+                    elif (multipliers[x][z] == 11):
+                        print("multi is 11")
+                        num = ((((tempText[y][z] * 2) * 2) ^ tempText[y][z]) * 2) ^ tempText[y][z]
+                        print(hex(num))
+                    elif (multipliers[x][z] == 13):
+                        print("multi is 13")
+                        num = ((((tempText[y][z] * 2) ^ tempText[y][z]) * 2) * 2) ^ tempText[y][z]
+                        print(hex(num))
+                    elif (multipliers[x][z] == 14):
+                        print("multi is 14")
+                        num = ((((tempText[y][z] * 2) ^ tempText[y][z]) * 2) ^ tempText[y][z]) * 2
+                        print(hex(num))
                     if (num > 255):
                         print("XOR by 1b")
                         num = num ^ 27
@@ -294,12 +474,10 @@ class AES:
                         num %= 256
                         print(hex(num))
                     res ^= num
-                print("After Column Mix value ", hex(res))
+                # print("After Column Mix value ", hex(res))
                 resArr.append(res)
         tempRowByteIndex = 0
-        for col in plaintextBlock.list:
+        for col in ciphertextBlock.list:
             for rowIndex in range(4):     
                 col[rowIndex] = resArr[tempRowByteIndex]
                 tempRowByteIndex += 1
-        
-
