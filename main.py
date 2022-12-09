@@ -3,7 +3,7 @@ from aes import *
 def main() :
     aes = AES()
 
-    # aes.encrypt("test", AES.KeyInfo.SMALL)
+    #aes.encrypt_test()
     aes.decrypt_test()
 
     # test = "asdasdasd"
@@ -43,3 +43,4 @@ if __name__=="__main__":
 # round[ 2].istart d1ed44fd1a0f3f2afa4ff27b7c332a69
 # round[ 2].is_row d133f22a1aed2a7bfa0f44697c4f3ffd
 # round[ 2].is_box 516604954353950314fb86e401922521
+#0x8e, 0xa2, 0xb7, 0xca, 0x51, 0x67, 0x45, 0xbf, 0xea, 0xfc, 0x49, 0x90, 0x4b, 0x49, 0x60, 0x89

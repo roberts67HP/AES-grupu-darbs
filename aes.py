@@ -1,8 +1,33 @@
 import random
 import enum
-
-from testing import *
-
+def fix_overflow(n) :
+        if (n > 255):
+            #print("XOR by 1b")
+            n = n ^ 27
+            #print(hex(n))
+        if (n > 255):
+            #print("Removing overflow")
+            n %= 256
+            #print(hex(n))
+        return n
+def num2 (n) :
+    n = n * 2
+    n = fix_overflow(n)
+    return n
+def num3 (n) :
+    return num2(n) ^ n
+def num4 (n) :
+    return num2(num2(n))
+def num8 (n) :
+    return num2(num4(n))
+def num9 (n) :
+    return num8(n) ^ n
+def num11 (n) :
+    return num8(n) ^ num2(n) ^ n
+def num13 (n) :
+    return num8(n) ^ num4(n) ^ n
+def num14 (n) :
+    return num8(n) ^ num4(n) ^ num2(n)
 s_box = (
     (0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5,
      0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76),
@@ -251,12 +276,20 @@ class AES:
     def decrypt_test(self):
         keyInfo = AES.KeyInfo.SMALL
         cipherTextBlocks = Blocks(bytes([
-            0x8e, 0xa2, 0xb7, 0xca, 0x51, 0x67, 0x45, 0xbf,
-            0xea, 0xfc, 0x49, 0x90, 0x4b, 0x49, 0x60, 0x89
+            #0x8e, 0xa2, 0xb7, 0xca, 0x51, 0x67, 0x45, 0xbf,
+            #0xea, 0xfc, 0x49, 0x90, 0x4b, 0x49, 0x60, 0x89
+            #0x5f, 0x72, 0x64, 0x15, 0x57, 0xf5, 0xbc, 0x92,
+            #0xf7, 0xbe, 0x3b, 0x29, 0x1d, 0xb9, 0xf9, 0x1a
+            0x47, 0x37, 0x94, 0xed, 0x40, 0xd4, 0xe4, 0xa5,
+            0xa3, 0x70, 0x3a, 0xa6, 0x4c, 0x9f, 0x42, 0xbc
         ]), 4)
         initialKeyBlock = Block(bytes([
-            0x24, 0xfc, 0x79, 0xcc, 0xbf, 0x09, 0x79, 0xe9,
-            0x37, 0x1a, 0xc2, 0x3c, 0x6d, 0x68, 0xde, 0x36
+            #0x24, 0xfc, 0x79, 0xcc, 0xbf, 0x09, 0x79, 0xe9,
+            #0x37, 0x1a, 0xc2, 0x3c, 0x6d, 0x68, 0xde, 0x36
+            #0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+            #0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+            
+
         ]), 4)
 
         print("\nCiphertext before = ", end=" ")
@@ -265,17 +298,17 @@ class AES:
         initialKeyBlock.printBytes()
 
         for block in cipherTextBlocks.list:
-            self.add_round_key(block, initialKeyBlock)
-            print("\nCiphertext after round key = ", end=" ")
-            cipherTextBlocks.printBlocks()
+            #self.add_round_key(block, initialKeyBlock)
+            #print("\nCiphertext after round key = ", end=" ")
+            #cipherTextBlocks.printBlocks()
 
-            self.inv_shift_rows(block)
-            print("\nCiphertext after inv shift rows = ", end=" ")
-            cipherTextBlocks.printBlocks()
+            #self.inv_shift_rows(block)
+            #print("\nCiphertext after inv shift rows = ", end=" ")
+            #cipherTextBlocks.printBlocks()
 
-            self.inv_sub_bytes(block)
-            print("\nCiphertext after inv sub bytes = ", end=" ")
-            cipherTextBlocks.printBlocks()
+            #self.inv_sub_bytes(block)
+            #print("\nCiphertext after inv sub bytes = ", end=" ")
+            #cipherTextBlocks.printBlocks()
 
             self.inv_mix_columns(block)
             print("\nCiphertext after inv mix columns = ", end=" ")
@@ -398,22 +431,12 @@ class AES:
                         # print(hex(num))
                     elif (multipliers[x][z] == 2):
                         # print("multi is 2")
-                        num = (2 * tempText[y][z])
+                        num = num2(tempText[y][z])
                         # print(hex(num))
                     # ja reizinātājs ir 3, tad rēķina šādi: 2 * vērtība XOR vērtība. Piem. 3 * ab = (2 * ab) XOR ab
                     elif (multipliers[x][z] == 3):
                         # print("multi is 3")
-                        num = (2 * tempText[y][z]) ^ tempText[y][z]
-                        # print(hex(num))
-                        # ja reizinot ir overflow (skaitlis >255 (>ff in hex)), tad rezultātu XOR ar 1b (27). (var izpildīties tikai tad, ja reizina ar 2 vai 3)
-                    if (num > 255):
-                        # print("XOR by 1b")
-                        num = num ^ 27
-                        # print(hex(num))
-                    # ja vēl joprojām ir overflow (skaitlis >255  (>ff in hex)), tad overflow ciparu nomet nost (vērtība = 256 % vērtība.)
-                    if (num > 255):
-                        # print("Removing overflow")
-                        num %= 256
+                        num = num3(tempText[y][z])
                         # print(hex(num))
                     res ^= num
                 # print("After Column Mix value ", hex(res))
@@ -423,7 +446,7 @@ class AES:
             for rowIndex in range(4):     
                 col[rowIndex] = resArr[tempRowByteIndex]
                 tempRowByteIndex += 1
-
+    
     def inv_mix_columns (self, ciphertextBlock) :
         multipliers = [
             [14, 11, 13, 9],
@@ -438,41 +461,36 @@ class AES:
             for rowIndex in range(4):
                 tempRowBytes.append(col[rowIndex])
             tempText.append(tempRowBytes)
-        # prints values for debug purpose
         num = 0
 
         for y in range(4):
             for x in range(4):
-                print("On value ", hex(tempText[y][x]), " at x - ", x, "  y - ", y)
+                #print("On value ", hex(tempText[y][x]), " at x - ", x, "  y - ", y)
                 res = 0
                 for z in range(4):
                     num = 0
-                    print("Z loop start value - ", hex(tempText[y][z]))
+                    #print("Z loop start value - ", hex(tempText[y][z]))
+                    num = tempText[y][z]
                     if (multipliers[x][z] == 9):
-                        print("multi is 9")
-                        num = (((tempText[y][z] * 2) * 2) * 2) ^ tempText[y][z]
-                        print(hex(num))
+                        #print("multi is 9")
+                        #num = (((tempText[y][z] * 2) * 2) * 2) ^ tempText[y][z]
+                        num = num9(tempText[y][z])
+                        #print(hex(num))
                     elif (multipliers[x][z] == 11):
-                        print("multi is 11")
-                        num = ((((tempText[y][z] * 2) * 2) ^ tempText[y][z]) * 2) ^ tempText[y][z]
-                        print(hex(num))
+                        #print("multi is 11")
+                        #num = (((tempText[y][z] * 2) * 2) * 2) ^ (tempText[y][z] * 2) ^ tempText[y][z]
+                        num = num11(tempText[y][z])
+                        #print(hex(num))
                     elif (multipliers[x][z] == 13):
-                        print("multi is 13")
-                        num = ((((tempText[y][z] * 2) ^ tempText[y][z]) * 2) * 2) ^ tempText[y][z]
-                        print(hex(num))
+                        #print("multi is 13")
+                        #num = (((tempText[y][z] * 2) * 2) * 2) ^ ((tempText[y][z] * 2) * 2) ^ tempText[y][z]
+                        num = num13(tempText[y][z])
+                        #print(hex(num))
                     elif (multipliers[x][z] == 14):
-                        print("multi is 14")
-                        num = ((((tempText[y][z] * 2) ^ tempText[y][z]) * 2) ^ tempText[y][z]) * 2
-                        print(hex(num))
-                    if (num > 255):
-                        print("XOR by 1b")
-                        num = num ^ 27
-                        print(hex(num))
-                    # ja vēl joprojām ir overflow (skaitlis >255  (>ff in hex)), tad overflow ciparu nomet nost (vērtība = 256 % vērtība.)
-                    if (num > 255):
-                        print("Removing overflow")
-                        num %= 256
-                        print(hex(num))
+                        #print("multi is 14")
+                        #num = (((tempText[y][z] * 2) * 2) * 2) ^ ((tempText[y][z] * 2) * 2) ^ (tempText[y][z] * 2)
+                        num = num14(tempText[y][z])
+                        #print(hex(num))
                     res ^= num
                 # print("After Column Mix value ", hex(res))
                 resArr.append(res)
